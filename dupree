@@ -6,23 +6,25 @@
 	// Parse the config file
 	$sqlite_db = $_SERVER['HOME']. "/.dupree.db";
 	
-		
-
-
 	// Parse the CLI input
-	$args 	= parseOptions($_SERVER['argv']);
-	$input 	= (file_get_contents('php://stdin'));
+	$args = parseOptions($_SERVER['argv']);
+	$input = (file_get_contents('php://stdin'));
 	$input = substr($input, 0, strlen($input)-1);
-	$hash 	= md5($input);
+	
+	// Generate the hash of the input
+	$hash = md5($input);
 
+	// Determine the table name for storage
 	if (isset($args['n']))
 	{
 		$table = "ns_".preg_replace('`[^a-z0-9_]`i','',$args['n'][0]);
 	}
 	else
 	{
-		$table = "ns_default";
+		$table = "default";
 	}
+	
+	// Spit out some variable values
 	verbose("DB = {$sqlite_db}");
 	if (!file_exists($sqlite_db))
 		verbose("\tDB file doesn't exist. Will try to create.");
@@ -30,12 +32,15 @@
 	verbose("Input = ".str_replace(array("\r\n", "\r", "\n"), '\n', $input));
 	verbose("Hash = ".$hash);
 	
+	// Let's get it on!
 	if ($db = new SQLiteDatabase($sqlite_db)) 
 	{
+		// First, determine if the destination table exists
 		$sql = "SELECT 'true' FROM SQLite_Master WHERE name = '{$table}'";
 		$table_exists = $db->query($sql)->fetchSingle();
 		verbose("SQL = {$sql}");
-
+		
+		// It doesn't exist, so create it
 		if ($table_exists != 'true')
 		{
 			verbose("Table ({$table}) doesn't exist, creating.");
@@ -47,11 +52,13 @@
 			verbose("Table ({$table}) exists");
 		}
 	
+		// Figure out how many times a specific message has been sent through before
 		$sql = "SELECT count(*) FROM {$table} WHERE hash = '{$hash}'";
 		verbose("SQL = {$sql}");
 	    $occurances 	= (int) $db->query($sql)->fetchSingle();
 		$max_occurances = (int) isset($args['c'][0])?$args['c'][0]:1;
 		
+		// If it has been sent less times than the max allows
 		if($occurances < $max_occurances)
 		{
 			verbose("Current count ({$occurances}) is under threshold ({$max_occurances}) for hash {$hash}");
@@ -72,19 +79,18 @@
 	    die();
 	}
 	
+	// If we are going to return the stdin input
 	if ($return_input)
 	{	
 		verbose("Return input = true");
 		verbose("");
 		echo $input;
-	
 	}
 	else
 	{
 		verbose("Return input = false");
-	}	
-		
-		
+	}
+	
 	verbose("");
 
 
