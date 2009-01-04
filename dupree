@@ -21,7 +21,7 @@
 	}
 	else
 	{
-		$table = "default";
+		$table = "default_namespace";
 	}
 	
 	// Spit out some variable values
