@@ -9,7 +9,6 @@
 	// Parse the CLI input
 	$args = parseOptions($_SERVER['argv']);
 	$input = (file_get_contents('php://stdin'));
-	//$input = substr($input, 0, strlen($input)-1);
 	
 	// Generate the hash of the input
 	$hash = md5($input);
@@ -17,6 +16,7 @@
 	// Determine the table name for storage
 	if (isset($args['n']))
 	{
+		// Prepend with 'ns_' to keep user defined namespaces seperate from any other possible tables in the DB. 
 		$table = "ns_".preg_replace('`[^a-z0-9_]`i','',$args['n'][0]);
 	}
 	else
@@ -46,7 +46,7 @@
 			verbose("Table ({$table}) doesn't exist, creating.");
 			$sql = "CREATE TABLE {$table} (hash VARCHAR(32), message TEXT, date_created TIMESTAMP);";
 			$db->queryExec($sql);
-	    }
+		}
 		else
 		{
 			verbose("Table ({$table}) exists");
@@ -76,7 +76,8 @@
 	}
 	else
 	{
-	    die();
+		// Something went wrong when creating the DB object
+		$return_input = false;
 	}
 	
 	// If we are going to return the stdin input
