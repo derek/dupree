@@ -1,0 +1,137 @@
+#!/usr/bin/php
+<?
+	// Create some globals
+	global $args;
+
+	// Parse the config file
+	$sqlite_db = $_SERVER['HOME']. "/.dupree.db";
+	
+		
+
+
+	// Parse the CLI input
+	$args 	= parseOptions($_SERVER['argv']);
+	$input 	= (file_get_contents('php://stdin'));
+	$input = substr($input, 0, strlen($input)-1);
+	$hash 	= md5($input);
+
+	if (isset($args['n']))
+	{
+		$table = "ns_".preg_replace('`[^a-z0-9_]`i','',$args['n'][0]);
+	}
+	else
+	{
+		$table = "ns_default";
+	}
+	verbose("DB = {$sqlite_db}");
+	if (!file_exists($sqlite_db))
+		verbose("\tDB file doesn't exist. Will try to create.");
+	verbose("Table = {$table}");
+	verbose("Input = ".str_replace(array("\r\n", "\r", "\n"), '\n', $input));
+	verbose("Hash = ".$hash);
+	
+	if ($db = new SQLiteDatabase($sqlite_db)) 
+	{
+		$sql = "SELECT 'true' FROM SQLite_Master WHERE name = '{$table}'";
+		$table_exists = $db->query($sql)->fetchSingle();
+		verbose("SQL = {$sql}");
+
+		if ($table_exists != 'true')
+		{
+			verbose("Table ({$table}) doesn't exist, creating.");
+			$sql = "CREATE TABLE {$table} (hash VARCHAR(32), message TEXT, date_created TIMESTAMP);";
+			$db->queryExec($sql);
+	    }
+		else
+		{
+			verbose("Table ({$table}) exists");
+		}
+	
+		$sql = "SELECT count(*) FROM {$table} WHERE hash = '{$hash}'";
+		verbose("SQL = {$sql}");
+	    $occurances 	= (int) $db->query($sql)->fetchSingle();
+		$max_occurances = (int) isset($args['c'][0])?$args['c'][0]:1;
+		
+		if($occurances < $max_occurances)
+		{
+			verbose("Current count ({$occurances}) is under threshold ({$max_occurances}) for hash {$hash}");
+			verbose("Inserting hash ({$hash})");
+			$sql = "INSERT INTO {$table} (hash, message, date_created) VALUES ('{$hash}', '".sqlite_escape_string($input)."', datetime('now'))";
+			verbose("SQL = {$sql}");
+			$db->queryExec($sql);
+			$return_input = true;
+		}
+		else
+		{
+			verbose("Current count ({$occurances}) is at or over threshold ({$max_occurances})");
+			$return_input = false;
+		}
+	}
+	else
+	{
+	    die();
+	}
+	
+	if ($return_input)
+	{	
+		verbose("Return input = true");
+		verbose("");
+		echo $input;
+	
+	}
+	else
+	{
+		verbose("Return input = false");
+	}	
+		
+		
+	verbose("");
+
+
+
+// THE END =======================
+
+
+
+
+
+function verbose($msg)
+{
+	if (isset($GLOBALS['args']['v']))
+	{
+		echo ": " . $msg , "\n";	
+	}
+}
+
+function parseOptions($array)
+{
+	$len=sizeof($array);
+	$currentName="";
+	$options=array();
+
+	for ($i = 1; $i < $len; $i++)
+	{
+		$name=$array[$i];
+	
+		if(strpos($name,"-")===0)
+		{
+			//is option
+			$name=str_replace("-","",$name);   
+			$currentName=$name;
+			if($options[$currentName]==NULL)
+			{
+				$options[$currentName]=array();  
+			}
+		}
+		else
+		{
+			$values=$options[$currentName];
+			array_push($values,$name);
+			$values = str_replace("\-", "-", $values);
+			$options[$currentName]=$values;
+		}
+	}
+	return $options;
+}
+
+?>
